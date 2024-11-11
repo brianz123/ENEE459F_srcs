@@ -28,19 +28,19 @@
         wire [7:0] rec_data, rec_data1;
         
         // Complete UART Core
-        uart_top UART_UNIT
-            (
-                .CLK(CLK),
-                .RST(reset),
-                .read_uart(btn_tick),
-                .write_uart(btn_tick),
-                .rx(rx),
-                .write_data(rec_data1),
-                .rx_full(rx_full),
-                .rx_empty(rx_empty),
-                .read_data(rec_data),
-                .tx(tx)
-            );
+    uart_top UART_UNIT
+        (
+            .CLK(CLK),
+            .RST(reset),
+            .read_uart(btn_tick),
+            .write_uart(btn_tick),
+            .rx(rx),
+            .write_data(rec_data1),
+            .rx_full(rx_full),
+            .rx_empty(rx_empty),
+            .read_data(rec_data),
+            .tx(tx)
+        );
         
         // Button Debouncer
         debounce_explicit BUTTON_DEBOUNCER
