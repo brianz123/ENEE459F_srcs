@@ -131,3 +131,254 @@ always @(*) begin
 end
 
 endmodule
+
+
+`timescale 1ns / 1ps
+
+module uart_floating_point_interface
+    #(
+        parameter DBITS = 8,          // Number of data bits in UART communication
+                  SB_TICK = 16,       // Number of stop bit ticks
+                  BR_LIMIT = 651,     // Baud rate generator counter limit
+                  BR_BITS = 10,       // Number of baud rate generator counter bits
+                  FIFO_EXP = 4        // Exponent for FIFO size (2^FIFO_EXP)
+    )
+    (
+        input clk_100MHz,
+        input reset,
+        input rx,                     // UART receive line
+        output tx,                    // UART transmit line
+        output reg [31:0] A,          // First 32-bit floating-point number
+        output reg [31:0] B           // Second 32-bit floating-point number
+    );
+
+    // Internal signals
+    wire tick;
+    wire rx_done_tick;
+    wire tx_done_tick;
+    wire [7:0] rx_data_out;
+    reg [1:0] state;
+    reg [5:0] bit_counter;
+    reg [31:0] input_buffer;
+
+    // Transmission logic
+    reg [7:0] tx_buffer;            // Current byte to transmit
+    reg tx_start;                   // Signal to start transmission
+    reg [3:0] tx_state;             // Transmission state
+    reg [7:0] tx_message_a [0:11];  // "A received" + newline
+    reg [7:0] tx_message_b [0:11];  // "B received" + newline
+    integer tx_index;               // Index for message transmission
+
+    // State encoding for reception
+    localparam IDLE     = 2'b00;
+    localparam READ_A   = 2'b01;
+    localparam READ_B   = 2'b10;
+    localparam PROCESS  = 2'b11;
+
+    // State encoding for transmission
+    localparam TX_IDLE      = 4'd0;
+    localparam TX_SEND_A    = 4'd1;
+    localparam TX_SEND_A_BYTE = 4'd2;
+    localparam TX_WAIT_A_DONE = 4'd3;
+    localparam TX_SEND_B    = 4'd4;
+    localparam TX_SEND_B_BYTE = 4'd5;
+    localparam TX_WAIT_B_DONE = 4'd6;
+
+    // Initialize transmission messages
+    initial begin
+        // "A received\n"
+        tx_message_a[0]  = "A";
+        tx_message_a[1]  = " ";
+        tx_message_a[2]  = "r";
+        tx_message_a[3]  = "e";
+        tx_message_a[4]  = "c";
+        tx_message_a[5]  = "e";
+        tx_message_a[6]  = "i";
+        tx_message_a[7]  = "v";
+        tx_message_a[8]  = "e";
+        tx_message_a[9]  = "d";
+        tx_message_a[10] = "\n";
+        tx_message_a[11] = 8'd0; // Null terminator or unused
+
+        // "B received\n"
+        tx_message_b[0]  = "B";
+        tx_message_b[1]  = " ";
+        tx_message_b[2]  = "r";
+        tx_message_b[3]  = "e";
+        tx_message_b[4]  = "c";
+        tx_message_b[5]  = "e";
+        tx_message_b[6]  = "i";
+        tx_message_b[7]  = "v";
+        tx_message_b[8]  = "e";
+        tx_message_b[9]  = "d";
+        tx_message_b[10] = "\n";
+        tx_message_b[11] = 8'd0; // Null terminator or unused
+    end
+
+    // Instantiate UART modules
+    baud_rate_generator 
+        #(
+            .M(BR_LIMIT), 
+            .N(BR_BITS)
+        ) 
+        baud_gen (
+            .clk_100MHz(clk_100MHz), 
+            .reset(reset),
+            .tick(tick)
+        );
+
+    uart_receiver
+        #(
+            .DBITS(DBITS),
+            .SB_TICK(SB_TICK)
+        )
+        uart_rx (
+            .clk_100MHz(clk_100MHz),
+            .reset(reset),
+            .rx(rx),
+            .sample_tick(tick),
+            .data_ready(rx_done_tick),
+            .data_out(rx_data_out)
+        );
+
+    uart_transmitter
+        #(
+            .DBITS(DBITS),
+            .SB_TICK(SB_TICK)
+        )
+        uart_tx (
+            .clk_100MHz(clk_100MHz),
+            .reset(reset),
+            .tx_start(tx_start),
+            .sample_tick(tick),
+            .data_in(tx_buffer),
+            .tx_done(tx_done_tick),
+            .tx(tx)
+        );
+
+    // Main state machine to receive two 32-bit floating-point numbers and send messages
+    always @(posedge clk_100MHz or posedge reset) begin
+        if (reset) begin
+            state <= IDLE;
+            bit_counter <= 6'd0;
+            input_buffer <= 32'd0;
+            A <= 32'd0;
+            B <= 32'd0;
+            // Transmission variables
+            tx_state <= TX_IDLE;
+            tx_index <= 0;
+            tx_start <= 0;
+            tx_buffer <= 8'd0;
+        end else begin
+            case (state)
+                IDLE: begin
+                    // Initial state, ready to read A
+                    state <= READ_A;
+                end
+
+                READ_A: begin
+                    if (rx_done_tick) begin
+                        input_buffer <= {input_buffer[23:0], rx_data_out};
+                        bit_counter <= bit_counter + 6'd8;
+                        if (bit_counter == 6'd24) begin
+                            A <= {input_buffer[23:0], rx_data_out};
+                            input_buffer <= 32'd0;
+                            bit_counter <= 6'd0;
+                            state <= TX_SEND_A; // Transition to send message after A is read
+                        end
+                    end
+                end
+
+                READ_B: begin
+                    if (rx_done_tick) begin
+                        input_buffer <= {input_buffer[23:0], rx_data_out};
+                        bit_counter <= bit_counter + 6'd8;
+                        if (bit_counter == 6'd24) begin
+                            B <= {input_buffer[23:0], rx_data_out};
+                            input_buffer <= 32'd0;
+                            bit_counter <= 6'd0;
+                            state <= TX_SEND_B; // Transition to send message after B is read
+                        end
+                    end
+                end
+
+                PROCESS: begin
+                    // Placeholder for processing A and B
+                    // After processing, you can transition to IDLE or another state
+                    state <= IDLE;
+                end
+
+                default: state <= IDLE;
+            endcase
+
+            // Transmission state machine
+            case (tx_state)
+                TX_IDLE: begin
+                    // Wait for transmission requests
+                    // Do nothing
+                end
+
+                TX_SEND_A: begin
+                    // Start sending "A received"
+                    tx_index <= 0;
+                    tx_buffer <= tx_message_a[tx_index];
+                    tx_start <= 1;
+                    tx_state <= TX_SEND_A_BYTE;
+                end
+
+                TX_SEND_A_BYTE: begin
+                    if (tx_done_tick) begin
+                        tx_start <= 0;
+                        tx_index <= tx_index + 1;
+                        if (tx_message_a[tx_index] != 8'd0) begin
+                            tx_buffer <= tx_message_a[tx_index];
+                            tx_start <= 1;
+                            tx_state <= TX_SEND_A_BYTE;
+                        end else begin
+                            tx_state <= READ_B; // After sending, proceed to read B
+                        end
+                    end
+                end
+
+                TX_SEND_B: begin
+                    // Start sending "B received"
+                    tx_index <= 0;
+                    tx_buffer <= tx_message_b[tx_index];
+                    tx_start <= 1;
+                    tx_state <= TX_SEND_B_BYTE;
+                end
+
+                TX_SEND_B_BYTE: begin
+                    if (tx_done_tick) begin
+                        tx_start <= 0;
+                        tx_index <= tx_index + 1;
+                        if (tx_message_b[tx_index] != 8'd0) begin
+                            tx_buffer <= tx_message_b[tx_index];
+                            tx_start <= 1;
+                            tx_state <= TX_SEND_B_BYTE;
+                        end else begin
+                            tx_state <= PROCESS; // After sending, proceed to processing
+                        end
+                    end
+                end
+
+                default: tx_state <= TX_IDLE;
+            endcase
+        end
+    end
+
+    // Transition to READ_B after sending "A received"
+    always @(posedge clk_100MHz or posedge reset) begin
+        if (reset) begin
+            // Nothing to do
+        end else begin
+            if (state == TX_SEND_A_BYTE && tx_done_tick && tx_index == 11) begin
+                state <= READ_B;
+            end
+        end
+    end
+
+    // Additional logic to handle READ_B transition
+    // Modified the main state machine to include sending messages
+
+endmodule
