@@ -1,17 +1,5 @@
     `timescale 1ns / 1ps
-    //////////////////////////////////////////////////////////////////////////////////
-    // Reference Book: FPGA Prototyping By Verilog Examples Xilinx Spartan-3 Version
-    // Authored by: Dr. Pong P. Chu
-    // Published by: Wiley
-    //
-    // Adapted for the Basys 3 Artix-7 FPGA by David J. Marion
-    //
-    // UART System Verification Circuit
-    //
-    // Comments:
-    // - Many of the variable names have been changed for clarity
-    //////////////////////////////////////////////////////////////////////////////////
-    
+
     module uart_test(
         input CLK,       // basys 3 FPGA clock signal
         input reset,            // btnR    
@@ -24,7 +12,7 @@
         );
         
         // Connection Signals
-        wire rx_full, rx_empty, btn_tick;
+        wire rx_full, rx_empty, btn_tick, clk_1kHz;
         wire [7:0] rec_data, rec_data1;
         
         // Complete UART Core
@@ -32,8 +20,8 @@
         (
             .CLK(CLK),
             .RST(reset),
-            .read_uart(btn_tick),
-            .write_uart(btn_tick),
+            .read_uart(clk_1kHz),
+            .write_uart(clk_1kHz),
             .rx(rx),
             .write_data(rec_data1),
             .rx_full(rx_full),
@@ -51,7 +39,23 @@
                 .db_level(),  
                 .db_tick(btn_tick)
             );
+       ClockDivider clkDivide(
+               .clk_100MHz(CLK),
+               .clk_1kHz(clk_1kHz)
+            ); 
+        reg [6:0] counter;
+        initial begin
+            counter = 0;
+        end
         
+        always @(posedge clk_1kHz or posedge reset) begin
+            counter = counter + 1;
+            if(counter > 65) begin
+                counter = 0;
+            end
+        
+        end    
+            
         // Signal Logic    
         assign rec_data1 = rec_data;    // add 1 to ascii value of received data (to transmit)
         
@@ -60,3 +64,28 @@
         assign an = 4'b1110;                // using only one 7 segment digit 
         assign seg = {~rx_full, 2'b11, ~rx_empty, 3'b111};
     endmodule
+    
+    
+    
+    
+    
+    
+    
+module ClockDivider(
+    input clk_100MHz,
+    output reg clk_1kHz
+);
+    reg [26:0] counter = 0; // Enough bits to count to 100M
+    initial begin
+        clk_1kHz <= 0;
+    end
+    
+    always @(posedge clk_100MHz) begin
+        if (counter == 5000 - 1) begin
+            clk_1kHz <= ~clk_1kHz;
+            counter <= 0;
+        end else begin
+            counter <= counter + 1;
+        end
+    end
+endmodule

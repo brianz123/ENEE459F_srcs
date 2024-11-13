@@ -1,116 +1,113 @@
 `timescale 1ns / 1ps
 
-module uart_floating_point_interface_tb;
-    reg clk_100MHz;
-    reg reset;
-    reg rx;
-    wire tx;
-    wire [31:0] A;
-    wire [31:0] B;
+module tb_uart_test;
 
-    // Instantiate the module
-    uart_floating_point_interface uut (
-        .clk_100MHz(clk_100MHz),
-        .reset(reset),
-        .rx(rx),
-        .tx(tx),
-        .A(A),
-        .B(B)
-    );
+// Testbench signals
+reg CLK;              // Clock signal for FPGA
+reg reset;            // Reset signal
+reg rx;               // UART receive line
+reg btn;              // Button to trigger read/write operation
 
-    // Clock generation
-    initial begin
-        clk_100MHz = 0;
-        forever #5 clk_100MHz = ~clk_100MHz;  // 100MHz clock
-    end
+// Outputs from the DUT (Device Under Test)
+wire tx;              // UART transmit line
+wire [3:0] an;        // 7-segment display digit select
+wire [0:6] seg;       // 7-segment display segment control
+wire [7:0] LED;       // LED data display
 
-    // UART parameters
-    parameter BIT_PERIOD = 104160;  // For 9600 baud rate (in ns)
+// Instantiate the uart_test module
+uart_test uut (
+    .CLK(CLK),
+    .reset(reset),
+    .rx(rx),
+    .btn(btn),
+    .tx(tx),
+    .an(an),
+    .seg(seg),
+    .LED(LED)
+);
 
-    // Variables to capture transmitted messages
-    reg [7:0] received_tx_data;
-    integer tx_byte_count;
-    integer tx_capture_finished;
+// Generate clock signal
+initial begin
+    CLK = 0;
+    forever #5 CLK = ~CLK; // 10 ns clock period (100 MHz)
+end
 
-    // Test sequence
-    initial begin
-        // Initialize inputs
-        reset = 1;
-        rx = 1;  // UART idle state
+// Main test sequence
+initial begin
+    // Initialize inputs
+    reset = 1;
+    btn = 0;
+    rx = 1;  // Idle state of UART line (high)
+    
+    // Hold reset high initially
+    #20 reset = 0; // Release reset after 20 ns
 
-        // Initialize transmission capture variables
-        tx_byte_count = 0;
-        tx_capture_finished = 0;
+    // Simulate UART reception of 'A' (ASCII 65, 8'h41)
+    // Start bit (low)
+    rx = 0;
+    #104160; // Wait for one bit time (9600 baud rate)
 
-        #100;
-        reset = 0;
+    // Data bits for 'A' (ASCII 65, binary 01000001)
+    rx = 1; #104160; // LSB = 1
+    rx = 0; #104160; // Bit 1 = 0
+    rx = 1; #104160; // Bit 2 = 0
+    rx = 0; #104160; // Bit 3 = 0
+    rx = 1; #104160; // Bit 4 = 0
+    rx = 0; #104160; // Bit 5 = 1
+    rx = 1; #104160; // Bit 6 = 0
+    rx = 0; #104160; // MSB = 0
 
-        #1000;
+    // Stop bit (high)
+    rx = 1;
+    #104160; // One bit time
 
-        // Simulate sending 32-bit float A (e.g., 1.5 in IEEE 754)
-        send_float_via_uart(32'h3FC00000);  // 1.5 in IEEE 754
+    #50000000; // Wait for the data to propagate through the design
 
-        #100000;
+    // Press the button to trigger read and write operations
+    btn = 1;
+    #20 btn = 0;
 
-        // Simulate sending 32-bit float B (e.g., -2.25 in IEEE 754)
-        send_float_via_uart(32'hC0080000);  // -2.25 in IEEE 754
+    // Simulate UART reception of 'B' (ASCII 66, 8'h42)
+    // Start bit (low)
+    rx = 0;
+    #104160; // Wait for one bit time
 
-        #200000;
+    // Data bits for 'B' (ASCII 66, binary 01000010)
+    rx = 0; #104160; // LSB = 0
+    rx = 1; #104160; // Bit 1 = 1
+    rx = 1; #104160; // Bit 2 = 0
+    rx = 0; #104160; // Bit 3 = 0
+    rx = 0; #104160; // Bit 4 = 0
+    rx = 0; #104160; // Bit 5 = 1
+    rx = 0; #104160; // Bit 6 = 0
+    rx = 0; #104160; // MSB = 0
 
-        // At this point, messages "A received\n" and "B received\n" should have been sent
-        $display("A = %h", A);
-        $display("B = %h", B);
+    // Stop bit (high)
+    rx = 1;
+    #104160; // One bit time
 
-        #100000;
-        $stop;
-    end
+    #500000; // Wait for the data to propagate
 
-    // Capture transmitted data
-    always @(posedge clk_100MHz) begin
-        if (tx_byte_count < 12 && !tx_capture_finished) begin
-            if (uut.tx_start && uut.tx_done_tick) begin
-                received_tx_data = uut.tx_buffer;
-                $write("%c", received_tx_data);  // Print the transmitted character
-                tx_byte_count = tx_byte_count + 1;
-                if (tx_byte_count == 11) begin
-                    tx_capture_finished = 1;
-                end
-            end
-        end
-    end
+    // Press the button again to trigger read and write
+    btn = 1;
+    #20 btn = 0;
 
-    // Task to send a 32-bit float via UART
-    task send_float_via_uart;
-        input [31:0] float_data;
-        integer i;
-        reg [7:0] byte_data;
-        begin
-            // Send most significant byte first (big-endian)
-            for (i = 3; i >= 0; i = i - 1) begin
-                byte_data = float_data[i*8 +: 8];
-                send_byte(byte_data);
-            end
-        end
-    endtask
+    // Check the display and LEDs
+    #1000; // Give time to observe outputs
 
-    // Task to send a byte via UART
-    task send_byte;
-        input [7:0] data;
-        integer i;
-        begin
-            // Start bit
-            rx = 0;
-            #(BIT_PERIOD);
+    // Apply reset
+    reset = 1;
+    #20 reset = 0;
 
-            // Data bits (LSB first)
-            for (i = 0; i < 8; i = i + 1) begin
-                rx = data[i];
-                #(BIT_PERIOD);
-            end
+    // End simulation
+    #5000;
+    $finish;
+end
 
-            // Stop bit
-            rx = 1;
-            #(BIT_PERIOD);
-        end
-    endtask
+// Monitor outputs
+initial begin
+    $monitor("Time: %0t | rx: %b | tx: %b | LED: %h | an: %b | seg: %b", 
+             $time, rx, tx, LED, an, seg);
+end
+
 endmodule
