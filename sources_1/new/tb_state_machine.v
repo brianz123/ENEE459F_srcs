@@ -23,7 +23,7 @@ state_machine uut (
 // Clock generation
 initial begin
     clk = 0;
-    forever #5 clk = ~clk; // 10 ns clock period
+    forever #2.5 clk = ~clk; // 10 ns clock period
 end
 
 // Task for applying stimulus to uart_in
@@ -46,29 +46,76 @@ initial begin
     // Apply reset
     #20 reset = 0; // Release reset after 20 ns
 
-    // Test ADD operation (opcode = 0)
-    apply_uart_input(2'b00, 32'h40A00000, 32'h40400000); // A = 5.0, B = 3.0 (IEEE 754 format), ADD
-    wait(done); // Wait until the task is completed
-    #10; // Wait for 10 ns after done signal
+    // Test cases for different numbers
+    // A = 5.0 (0x40A00000), B = 3.0 (0x40400000)
+    apply_uart_input(2'b00, 32'h40A00000, 32'h40400000); // ADD
+    #65
+    apply_uart_input(2'b01, 32'h40A00000, 32'h40400000); // SUBTRACT
+    #65
+//    apply_uart_input(2'b10, 32'h40A00000, 32'h40400000); // MULTIPLY
+//    #65
+//    apply_uart_input(2'b11, 32'h40A00000, 32'h40400000); // UNKNOWN
+//    #65
 
-    // Test SUBTRACT operation (opcode = 1)
-    apply_uart_input(2'b01, 32'h41000000, 32'h40400000); // A = 8.0, B = 3.0, SUBTRACT
-    wait(done); // Wait until the task is completed
-    #10; // Wait for 10 ns after done signal
+    // A = 8.0 (0x41000000), B = 3.0 (0x40400000)
+    apply_uart_input(2'b00, 32'h41000000, 32'h40400000); // ADD
+    #65
+    apply_uart_input(2'b01, 32'h41000000, 32'h40400000); // SUBTRACT
+    #65
+//    apply_uart_input(2'b10, 32'h41000000, 32'h40400000); // MULTIPLY
+//    #65
+//    apply_uart_input(2'b11, 32'h41000000, 32'h40400000); // UNKNOWN
+//    #65
 
-    // Test MULTIPLY operation (opcode = 2)
-    apply_uart_input(2'b10, 32'h40000000, 32'h40800000); // A = 2.0, B = 4.0, MULTIPLY
-    wait(done); // Wait until the task is completed
-    #10; // Wait for 10 ns after done signal
+    // Edge case: Overflow
+    apply_uart_input(2'b00, 32'h7F800000, 32'h7F800000); // ADD
+    #65
+    apply_uart_input(2'b01, 32'h7F800000, 32'h7F800000); // SUBTRACT
+    #65
+//    apply_uart_input(2'b10, 32'h7F800000, 32'h7F800000); // MULTIPLY
+//    #65
+//    apply_uart_input(2'b11, 32'h7F800000, 32'h7F800000); // UNKNOWN
+//    #65
 
-    // Reset state machine
-    reset = 1;
-    #20 reset = 0;
+    // Edge case: Underflow
+    apply_uart_input(2'b00, 32'h00000001, 32'h00000001); // ADD
+    #65
+    apply_uart_input(2'b01, 32'h00000001, 32'h00000001); // SUBTRACT
+    #65
+//    apply_uart_input(2'b10, 32'h00000001, 32'h00000001); // MULTIPLY
+//    #65
+//    apply_uart_input(2'b11, 32'h00000001, 32'h00000001); // UNKNOWN
+//    #65
 
-    // Test default (unknown opcode)
-    apply_uart_input(2'b11, 32'h40000000, 32'h40800000); // Unknown opcode
-    wait(done); // Wait until the task is completed
-    #10; // Wait for 10 ns after done signal
+    // Edge case: NaN
+    apply_uart_input(2'b00, 32'h7FC00000, 32'h40400000); // ADD
+    #65
+    apply_uart_input(2'b01, 32'h7FC00000, 32'h40400000); // SUBTRACT
+    #65
+//    apply_uart_input(2'b10, 32'h7FC00000, 32'h40400000); // MULTIPLY
+//    #65
+//    apply_uart_input(2'b11, 32'h7FC00000, 32'h40400000); // UNKNOWN
+//    #65
+
+    // Edge case: Infinity
+    apply_uart_input(2'b00, 32'h7F800000, 32'hFF800000); // ADD
+    #65
+    apply_uart_input(2'b01, 32'h7F800000, 32'hFF800000); // SUBTRACT
+    #65
+//    apply_uart_input(2'b10, 32'h7F800000, 32'hFF800000); // MULTIPLY
+//    #65
+//    apply_uart_input(2'b11, 32'h7F800000, 32'hFF800000); // UNKNOWN
+//    #65
+
+    // Edge case: Denormalized Numbers
+    apply_uart_input(2'b00, 32'h00000001, 32'h00000002); // ADD
+    #65
+    apply_uart_input(2'b01, 32'h00000001, 32'h00000002); // SUBTRACT
+    #65
+//    apply_uart_input(2'b10, 32'h00000001, 32'h00000002); // MULTIPLY
+//    #65
+//    apply_uart_input(2'b11, 32'h00000001, 32'h00000002); // UNKNOWN
+//    #65
 
     // End of simulation
     $finish;
@@ -76,7 +123,7 @@ end
 
 // Monitor state transitions and results
 initial begin
-    $monitor("Time: %0t | State: %0d | Opcode: %b | A: %0h | B: %0h | Done: %b",
+    $monitor("Time: %0t | State: %0d | Opcode: %b | A: %0e | B: %0e | Done: %b",
               $time, uut.state, uart_in[1:0], uart_in[33:2], uart_in[65:34], done);
 end
 
