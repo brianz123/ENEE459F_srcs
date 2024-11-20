@@ -27,6 +27,7 @@ module i2c_slave_controller
                 if (sda == 0) begin //  start
                     state <= ADDRESS;
                     bit_count <= 7; 
+                    ack = 0;
                     shift_reg <= 0; // clear shift reg
                 end
             end
@@ -54,6 +55,8 @@ module i2c_slave_controller
             RECEIVE_DATA: begin
                 shift_reg[bit_count] <= sda; // shift in data
                 if (bit_count == 0) begin
+                    shift_reg = shift_reg + sda;
+                    $display("Receiving Data: %b", sda);
                     data_out <= shift_reg; // data fully received
                     state <= STOP; // to STOP state
                 end else begin
@@ -62,10 +65,12 @@ module i2c_slave_controller
             end
 
             STOP: begin
-                if (sda == 1) begin // stop 
+                ack <= 0; // Reset ACK 
+                $display("END");
+//                if (sda == 0) begin // stop 
                     state <= IDLE;
-                    ack <= 0; // Reset ACK 
-                end
+                    
+//                end
             end
         endcase
     end
