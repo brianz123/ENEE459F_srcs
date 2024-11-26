@@ -8,6 +8,7 @@ module i2c_controller_tb;
 	reg enable;
 	reg rw;
 	wire [7:0] data_out;
+	wire new_byte_received;
 	wire ready;
 	wire i2c_sda;
 	wire i2c_scl;
@@ -33,6 +34,7 @@ module i2c_controller_tb;
 	i2c_slave_controller slave (
 		.sda(i2c_sda), 
 		.scl(i2c_scl),
+		.new_byte_received(new_byte_received),
 		.ack(ack), // acknowledge from slave to master
 		.data_out(received_data), // data received by slave
 		.slave_addr(slave_addr) // slave stored address

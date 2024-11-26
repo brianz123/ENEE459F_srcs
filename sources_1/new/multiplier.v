@@ -7,7 +7,6 @@ module multiplier (
     output reg valid
 );
 
-    // Internal signals
     reg sign_a, sign_b, sign_result;
     reg [7:0] exp_a, exp_b, exp_result;
     reg [22:0] mantissa_a, mantissa_b;
@@ -21,8 +20,8 @@ module multiplier (
     wire [23:0] mantissa_a_complete = {1'b1, mantissa_a};
     wire [23:0] mantissa_b_complete = {1'b1, mantissa_b};
     
-    reg [24:0] booth_encoded[11:0];
-    reg [2:0] booth_sel[11:0];
+    // reg [24:0] booth_encoded[11:0];
+    // reg [2:0] booth_sel[11:0];
     reg [25:0] temp_b;
 
     reg [47:0] wallace_sum;
@@ -44,23 +43,23 @@ module multiplier (
         .product(product_mantissa)
     );
     
-    // Booth Radix-4 Encoding Function
-    function [24:0] booth_encode;
-        input [2:0] sel;
-        input [23:0] multiplicand;
-        begin
-            case(sel)
-                3'b000: booth_encode = 25'd0;
-                3'b001: booth_encode = {multiplicand, 1'b0};
-                3'b010: booth_encode = {multiplicand, 1'b0};
-                3'b011: booth_encode = {multiplicand, 1'b0} << 1;
-                3'b100: booth_encode = ~({multiplicand, 1'b0} << 1) + 1;
-                3'b101: booth_encode = ~{multiplicand, 1'b0} + 1;
-                3'b110: booth_encode = ~{multiplicand, 1'b0} + 1;
-                3'b111: booth_encode = 25'd0;
-            endcase
-        end
-    endfunction
+    // // Booth Radix-4 Encoding Function
+    // function [24:0] booth_encode;
+    //     input [2:0] sel;
+    //     input [23:0] multiplicand;
+    //     begin
+    //         case(sel)
+    //             3'b000: booth_encode = 25'd0;
+    //             3'b001: booth_encode = {multiplicand, 1'b0};
+    //             3'b010: booth_encode = {multiplicand, 1'b0};
+    //             3'b011: booth_encode = {multiplicand, 1'b0} << 1;
+    //             3'b100: booth_encode = ~({multiplicand, 1'b0} << 1) + 1;
+    //             3'b101: booth_encode = ~{multiplicand, 1'b0} + 1;
+    //             3'b110: booth_encode = ~{multiplicand, 1'b0} + 1;
+    //             3'b111: booth_encode = 25'd0;
+    //         endcase
+    //     end
+    // endfunction
     
     always @(posedge clk or posedge rst) begin
         if (rst) begin
@@ -72,15 +71,15 @@ module multiplier (
             temp_exp <= 9'd0;
             temp_b <= 26'd0;
             
-            for (i = 0; i < 12; i = i + 1) begin
-                booth_encoded[i] <= 25'd0;
-                booth_sel[i] <= 3'd0;
-            end
+            // for (i = 0; i < 12; i = i + 1) begin
+            //     booth_encoded[i] <= 25'd0;
+            //     booth_sel[i] <= 3'd0;
+            // end
         end
         else begin
             case (state)
                 IDLE: begin
-                    // Extract components
+                    // extract components
                     sign_a <= a[31];
                     sign_b <= b[31];
                     exp_a <= a[30:23];
@@ -92,7 +91,7 @@ module multiplier (
                 end
                 
                 DECODE: begin
-                    // Handle special cases
+                    // handle special cases
                     if (exp_a == 8'd0 || exp_b == 8'd0) begin
                         // Zero result
                         result <= {sign_a ^ sign_b, 31'd0};
@@ -100,13 +99,13 @@ module multiplier (
                         valid <= 1'b1;
                     end
                     else if (exp_a == 8'hFF || exp_b == 8'hFF) begin
-                        // Infinity or NaN
+                        // infinity or NaN
                         result <= {sign_a ^ sign_b, 8'hFF, 23'd0};
                         state <= IDLE;
                         valid <= 1'b1;
                     end
                     else begin
-                        // Prepare for multiplication
+                        // prepare for multiplication
                         temp_b <= {mantissa_b_complete, 2'b0};
                         state <= MULTIPLY;
                     end
@@ -115,8 +114,6 @@ module multiplier (
                 MULTIPLY: begin
                     // ONLY FOR TESTING
                     // product_mantissa <= mantissa_a_complete * mantissa_b_complete;
-
-
                     // MULTIPLCATION done by booth_multiplier_24bit multiplier_instance
                     
                     temp_exp <= exp_a + exp_b - BIAS;
@@ -144,10 +141,10 @@ module multiplier (
                 end
                 
                 ROUND: begin
-                    // Round towards positive infinity
-                    if (|mantissa_result[23:0]) begin  // If there are any bits after the rounding position
+                    // round towards positive infinity
+                    if (|mantissa_result[23:0]) begin  // if there are any bits after the rounding position
                         if (mantissa_result[46:24] == 23'h7FFFFF) begin
-                            // Rounding causes overflow
+                            // rounding causes overflow
                             mantissa_result <= {48'h8000000000000};
                             temp_exp <= temp_exp + 1;
                         end
@@ -156,17 +153,17 @@ module multiplier (
                         end
                     end
                     
-                    // Check for exponent overflow/underflow
+                    // check for exponent overflow/underflow
                     if (temp_exp[8] || temp_exp[7:0] == 8'hFF) begin
-                        // Overflow -> Infinity
+                        // overflow -> infinity
                         result <= {sign_result, 8'hFF, 23'd0};
                     end
                     else if (temp_exp[8] || temp_exp == 0) begin
-                        // Underflow -> Zero
+                        // underflow -> zero
                         result <= {sign_result, 31'd0};
                     end
                     else begin
-                        // Normal case
+                        // normal case
                         result <= {sign_result, temp_exp[7:0], mantissa_result[45:23]};
                     end
                     

@@ -29,7 +29,6 @@ module top_level_i2c
         .i2c_scl(i2c_scl)
     );
 
-
     wire ack_slave;
     reg [6:0] slave_addr = 7'b0101010; // Slave address
 

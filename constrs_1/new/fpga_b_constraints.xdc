@@ -80,15 +80,19 @@ set_property IOSTANDARD LVCMOS18 [get_ports rst]
 set_property PACKAGE_PIN U18 [get_ports rst]
 
 
-set_property -dict { PACKAGE_PIN L2 IOSTANDARD LVCMOS18 } [get_ports {i2c_sda}]
-set_property -dict { PACKAGE_PIN J1 IOSTANDARD LVCMOS18 } [get_ports {i2c_scl}]
+
+
+set_property IOSTANDARD LVCMOS18 [get_ports sda]
+set_property PACKAGE_PIN K17 [get_ports sda]
+set_property IOSTANDARD LVCMOS18 [get_ports scl]
+set_property PACKAGE_PIN M18 [get_ports scl]
 
 
 
 
-set_property IOSTANDARD LVCMOS18 [get_ports {mode[*]}]
-set_property PACKAGE_PIN V17 [get_ports {mode[0]}]
-set_property PACKAGE_PIN V16 [get_ports {mode[1]}]
+# set_property IOSTANDARD LVCMOS18 [get_ports {mode[*]}]
+# set_property PACKAGE_PIN V17 [get_ports {mode[0]}]
+# set_property PACKAGE_PIN V16 [get_ports {mode[1]}]
 
 
 

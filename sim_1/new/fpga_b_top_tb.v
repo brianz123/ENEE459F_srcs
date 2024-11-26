@@ -1,25 +1,22 @@
 `timescale 1ns / 1ps
 
 module fpga_b_top_tb;
-
-    // Test bench signals
     reg clk;
     reg rst;
-    reg [65:0] uart_in;
-    reg [31:0] ans;
+    reg [103:0] i2c_in;
 
-    //     inout wire sda,
-    // inout wire scl,
+    // inout wire sda,
+    // input wire scl,
     // input [1:0] mode,
     
-     wire CS;
-     wire SDIN;
-     wire SCLK;
-     wire DC;
-     wire RES;
-     wire VBAT;
-     wire VDD;
-     wire FIN;
+    wire CS;
+    wire SDIN;
+    wire SCLK;
+    wire DC;
+    wire RES;
+    wire VBAT;
+    wire VDD;
+    wire FIN;
 
     reg sda;
     reg scl;
@@ -42,8 +39,7 @@ module fpga_b_top_tb;
     fpga_b_top DUT (
         .clk(clk),
         .rst(rst),
-        .uart_in(uart_in),
-        .ans(ans),
+        .i2c_in(i2c_in),
         .CS(CS),
         .SDIN(SDIN),
         .SCLK(SCLK),
@@ -56,6 +52,7 @@ module fpga_b_top_tb;
 
     wire multiplied_valid;
     wire [31:0] product;
+    wire [31:0] ans;
     wire [1:0] current_state;
     wire [1:0] next_state;
     wire [31:0] operand_a;
@@ -68,6 +65,7 @@ module fpga_b_top_tb;
 
     assign multiplied_valid = DUT.multiplied_valid;
     assign product = DUT.product;
+    assign ans = DUT.ans;
     assign current_state = DUT.current_state;
     assign next_state = DUT.next_state;
     assign operand_a = DUT.operand_a;
@@ -89,8 +87,7 @@ module fpga_b_top_tb;
     initial begin
         // Initialize all inputs
         rst = 1'b1;
-        uart_in = 66'b0;
-        ans = 32'b0;
+        i2c_in = 104'b0;
         
         $display("Starting testbench");
         
@@ -101,31 +98,36 @@ module fpga_b_top_tb;
         // Test Case 1: 2.0 * 3.0 = 6.0
         #100;
         $display("\nTest Case 1: 2.0 * 2.0");
-        uart_in = {2'b10, 32'h40400000, 32'h40400000};  // op = 10 (multiply), 3.0 * 2.0
+        i2c_in = {6'b000000, 2'b10, 32'h40400000, 32'h40400000, 32'h40400000};  // op = 10 (multiply), 3.0 * 2.0
         #100;
         
         // Test Case 2: Multiplication by zero
         #200;
         $display("\nTest Case 2: 2.0 * 0.0");
-        uart_in = {2'b10, 32'h00000000, 32'h40000000};  // op = 10 (multiply), 0.0 * 2.0
+        i2c_in = {6'b000000, 2'b10, 32'h00000000, 32'h40000000, 32'h40400000};  // op = 10 (multiply), 0.0 * 2.0
         #100;
         
         // Test Case 3: Negative number multiplication (-1.0 * 2.0 = -2.0)
         #200;
         $display("\nTest Case 3: -1.0 * 2.0");
-        uart_in = {2'b10, 32'h40000000, 32'hBF800000};  // op = 10 (multiply), 2.0 * -1.0
+        i2c_in = {6'b000000, 2'b10, 32'h40000000, 32'hBF800000, 32'h40400000};  // op = 10 (multiply), 2.0 * -1.0
         #100;
         
         // Test Case 4: Fractional multiplication (0.5 * 4.0 = 2.0)
         #200;
         $display("\nTest Case 4: 0.5 * 4.0");
-        uart_in = {2'b10, 32'h40800000, 32'h3F000000};  // op = 10 (multiply), 4.0 * 0.5
+        i2c_in = {6'b000000, 2'b10, 32'h40800000, 32'h3F000000, 32'h40400000};  // op = 10 (multiply), 4.0 * 0.5
         #100;
         
         // Test Case 5: Small number multiplication (0.5 * 0.5 = 0.25)
         #200;
         $display("\nTest Case 5: 0.5 * 0.5");
-        uart_in = {2'b10, 32'h3F000000, 32'h3F000000};  // op = 10 (multiply), 0.5 * 0.5
+        i2c_in = {6'b000000, 2'b10, 32'h3F000000, 32'h3F000000, 32'h40400000};  // op = 10 (multiply), 0.5 * 0.5
+        #100;
+
+
+        #200;
+        i2c_in = {6'b000000, 2'b00, 32'h3F000000, 32'h3F000000, 32'h40400000};  // op = 10 (multiply), 0.5 * 0.5
         #100;
         
         // End simulation

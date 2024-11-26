@@ -112,30 +112,30 @@ module PmodOLEDCtrl(
     );
 
 
-function [7:0] bin_to_ascii_hex;
-    input [3:0] bin;
-    begin
-        case (bin)
-            4'b0000: bin_to_ascii_hex = 8'h30; // '0'
-            4'b0001: bin_to_ascii_hex = 8'h31; // '1'
-            4'b0010: bin_to_ascii_hex = 8'h32; // '2'
-            4'b0011: bin_to_ascii_hex = 8'h33; // '3'
-            4'b0100: bin_to_ascii_hex = 8'h34; // '4'
-            4'b0101: bin_to_ascii_hex = 8'h35; // '5'
-            4'b0110: bin_to_ascii_hex = 8'h36; // '6'
-            4'b0111: bin_to_ascii_hex = 8'h37; // '7'
-            4'b1000: bin_to_ascii_hex = 8'h38; // '8'
-            4'b1001: bin_to_ascii_hex = 8'h39; // '9'
-            4'b1010: bin_to_ascii_hex = 8'h41; // 'A'
-            4'b1011: bin_to_ascii_hex = 8'h42; // 'B'
-            4'b1100: bin_to_ascii_hex = 8'h43; // 'C'
-            4'b1101: bin_to_ascii_hex = 8'h44; // 'D'
-            4'b1110: bin_to_ascii_hex = 8'h45; // 'E'
-            4'b1111: bin_to_ascii_hex = 8'h46; // 'F'
-            default: bin_to_ascii_hex = 8'h2A; // '*'
-        endcase
-    end
-endfunction
+    function [7:0] bin_to_ascii_hex;
+        input [3:0] bin;
+        begin
+            case (bin)
+                4'b0000: bin_to_ascii_hex = 8'h30; // '0'
+                4'b0001: bin_to_ascii_hex = 8'h31; // '1'
+                4'b0010: bin_to_ascii_hex = 8'h32; // '2'
+                4'b0011: bin_to_ascii_hex = 8'h33; // '3'
+                4'b0100: bin_to_ascii_hex = 8'h34; // '4'
+                4'b0101: bin_to_ascii_hex = 8'h35; // '5'
+                4'b0110: bin_to_ascii_hex = 8'h36; // '6'
+                4'b0111: bin_to_ascii_hex = 8'h37; // '7'
+                4'b1000: bin_to_ascii_hex = 8'h38; // '8'
+                4'b1001: bin_to_ascii_hex = 8'h39; // '9'
+                4'b1010: bin_to_ascii_hex = 8'h41; // 'A'
+                4'b1011: bin_to_ascii_hex = 8'h42; // 'B'
+                4'b1100: bin_to_ascii_hex = 8'h43; // 'C'
+                4'b1101: bin_to_ascii_hex = 8'h44; // 'D'
+                4'b1110: bin_to_ascii_hex = 8'h45; // 'E'
+                4'b1111: bin_to_ascii_hex = 8'h46; // 'F'
+                default: bin_to_ascii_hex = 8'h2A; // '*'
+            endcase
+        end
+    endfunction
 
 
 	//MUXes to indicate which outputs are routed out depending on which block is enabled
@@ -148,19 +148,10 @@ endfunction
 	assign init_en = (current_state == "OledInitialize") ? 1'b1 : 1'b0;
 	assign display_en = (current_state == "OledDisplay") ? 1'b1 : 1'b0;
 	
-   //Display finish flag only high when in done state
+    //Display finish flag only high when in done state
     assign FIN = (current_state == "Done") ? 1'b1 : 1'b0;
-
-
-
     reg [110:0] current_state = "Idle";
 
-
-// Define the text for each page
-localparam [127:0] PAGE0_TEXT = {8'h45, 8'h4E, 8'h45, 8'h45, 8'h34, 8'h35, 8'h39, 8'h46, 8'h0A, 8'h0A, 8'h20, 8'h20, 8'h20, 8'h20, 8'h20, 8'h20}; // "ENEE459F\n\n      "
-localparam [127:0] PAGE1_TEXT = {8'h4F, 8'h4C, 8'h45, 8'h44, 8'h20, 8'h54, 8'h45, 8'h53, 8'h54, 8'h20, 8'h20, 8'h20, 8'h20, 8'h20, 8'h20, 8'h20}; // "OLED TEST       "
-localparam [127:0] PAGE2_TEXT = {8'h42, 8'h79, 8'h20, 8'h4E, 8'h65, 8'h6C, 8'h6C, 8'h79, 8'h20, 8'h20, 8'h20, 8'h20, 8'h20, 8'h20, 8'h20, 8'h20}; // "By Nelly        "
-localparam [127:0] PAGE3_TEXT_BASE = {8'h53, 8'h75, 8'h63, 8'h63, 8'h65, 8'h73, 8'h73, 8'h21, 8'h21, 8'h20, 8'h20, 8'h20, 8'h20, 8'h20, 8'h20, 8'h20}; // "Success!!       "
     // State Machine
     always @(posedge CLK) begin
         if (RST == 1'b1) begin
@@ -183,9 +174,6 @@ localparam [127:0] PAGE3_TEXT_BASE = {8'h53, 8'h75, 8'h63, 8'h63, 8'h65, 8'h73, 
                 
                 
                 
-                
-                
-                
                 "OledReady" : begin
                     if (EN == 1'b1) begin
                         // Display the FIFO output data in hexadecimal
@@ -203,8 +191,6 @@ localparam [127:0] PAGE3_TEXT_BASE = {8'h53, 8'h75, 8'h63, 8'h63, 8'h65, 8'h73, 
                         current_state <= "OledDisplay";
                     end
                 end
-                
-                
                 
                 
                 
