@@ -12,7 +12,7 @@ module i2c_master_controller
 
 	output reg [7:0] data_out,
 	output wire ready,
-
+    output wire done,
 	inout i2c_sda,
 	inout wire i2c_scl
 	);
@@ -40,6 +40,7 @@ module i2c_master_controller
 	reg i2c_clk = 1;
 
 	assign ready = ((rst == 0) && (state == IDLE)) ? 1 : 0;
+	assign done = ((rst == 0) && (state == STOP)) ? 1 : 0;
 	assign i2c_scl = (i2c_scl_enable == 0 ) ? 1 : i2c_clk;
 	assign i2c_sda = (write_enable == 1) ? sda_out : 'bz;
 	
@@ -102,7 +103,7 @@ module i2c_master_controller
 
 				WRITE_DATA: begin
 					if(counter == 0) begin
-						state <= READ_ACK2;
+						state <= WRITE_ACK;
 					end else counter <= counter - 1;
 				end
 				

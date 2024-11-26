@@ -2,12 +2,21 @@ module state_machine (
     input clk,
     input reset,
     input [65:0] uart_in,
+    input uart_ready,
     output reg done,          // Flag indicating task completion
-    output [15:0] led
+//    output [15:0] led,
+    output complete,
+//    output done,
+    inout i2c_sda,
+	inout wire i2c_scl,
+	output [1:0] op,
+    output [3:0] st
+	
 );
-
+assign st = state;
+assign op = opcode;
     // Assignments
-    assign led[15] = ready_flag;
+//    assign led[15] = ready_flag;
 
     // State encoding
     parameter IDLE        = 4'b0000;
@@ -29,14 +38,17 @@ module state_machine (
     wire uart_full_flag; // Controlled by UART module
 
     // Outputs to I2C
-    reg [5:0] ack_start;
-
+    localparam ack_start = 6'b111111;
+    reg write;
+    wire ready;
+    
+    
     // Data wires
     wire [31:0] A, B, sum, difference; 
-    wire [31:0] result;
+    wire [31:0] final_result;
     wire [1:0] opcode; // Register for task selection
-    wire [99:0] output_buff;
-
+    wire [103:0] output_buff;
+    wire i2c_done;
     // UART and debounce signals
     wire rx_full, rx_empty, btn_tick;
 
@@ -45,20 +57,29 @@ module state_machine (
     reg write_enable;                   // Trigger for UART transmission
 
     // Assignments
-    assign result = (add_flag) ? sum : (sub_flag ? difference : 32'b0);
+    assign final_result = (add_flag) ? sum : (sub_flag ? difference : 32'b0);
     assign opcode = uart_in[1:0];
     assign A = uart_in[33:2];
     assign B = uart_in[65:34];
-    assign output_buff = {ack_start, A, B, result};
+    assign output_buff = {ack_start, opcode, A, B, final_result};
 
     // Floating-point add/subtract modules
     FP32_CLA_Adder add(.a(A), .b(B), .result(sum));
     FP32_CLA_Subtractor subtract(.a(A), .b(B), .result(difference));
 
-    // Initialization
-    initial begin
-        ack_start = 1;
-    end
+    master_i2c master(
+        .master_data_in(output_buff),
+        .clk(clk),
+        .rst(reset),
+        .enable(write),
+        .ready(ready),
+        .done(i2c_done),
+        .complete(complete),
+        .i2c_sda(i2c_sda),
+        .i2c_scl(i2c_scl)
+    );
+    
+  
 
     // State machine logic
     always @(posedge clk or posedge reset) begin
@@ -68,6 +89,7 @@ module state_machine (
             ready_flag <= 0;
             add_flag = 0;
             sub_flag = 0;
+            write = 0;
         end else begin
             state <= next_state;
         end
@@ -88,7 +110,7 @@ module state_machine (
             end
 
             ASK_TASK: begin
-                if (!uart_full_flag) begin
+                if (!uart_ready) begin
                     ready_flag <= 1;
                     next_state = ASK_TASK;
                 end else begin
@@ -121,7 +143,12 @@ module state_machine (
 
             WRITE_I2C: begin
                 // Placeholder for I2C write operation
-                next_state = DONE_STATE;
+                write <=1;
+                if(complete == 1)begin
+                    write= 0;
+                    next_state = DONE_STATE;
+                    write = 0;
+                end
             end
 
             DONE_STATE: begin

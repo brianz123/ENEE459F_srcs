@@ -18,7 +18,7 @@
 module fifo
 	#(
 	   parameter	DATA_SIZE 	   = 8,	       // number of bits in a data word
-				    ADDR_SPACE_EXP = 6	       // number of address bits (2^4 = 16 addresses)
+				    ADDR_SPACE_EXP = 7	       // number of address bits (2^4 = 16 addresses)
 	)
 	(
 	   input clk,                              // FPGA clock           

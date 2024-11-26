@@ -20,7 +20,8 @@ FPGA B State machine for top module:
 i2c data order flow
 ack start --> opcode --> A --> B --> RESULT
 Number of bits: 6+2+32+32+32+1
-
+send in segments
+ack_start = 111111
 
 OPCODES:
 00 - ADD

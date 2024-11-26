@@ -45,25 +45,51 @@ module FP32_CLA_Adder(
         end
     end
 
-    // Step 5: Normalize result
+      // Step 5: Normalize result using Leading Zero Counter
     reg [7:0] result_exp;
     reg [23:0] result_mantissa;
+    reg [4:0] leading_zeros; // 5 bits to count up to 24
+
     always @(*) begin
         if (mantissa_result[24]) begin
             // Normalization shift if there's a carry out
             result_mantissa = mantissa_result[24:1]; // Shift right by 1
             result_exp = aligned_exp + 1;
         end else begin
-            result_mantissa = mantissa_result[23:0];
-            result_exp = aligned_exp;
-            // Normalize mantissa by left-shifting until MSB is 1
-            while (result_mantissa[23] == 0 && result_exp > 0) begin
-                result_mantissa = result_mantissa << 1;
-                result_exp = result_exp - 1;
-            end
+            // Use Leading Zero Counter
+            if (mantissa_result[23]) leading_zeros = 0;
+            else if (mantissa_result[22]) leading_zeros = 1;
+            else if (mantissa_result[21]) leading_zeros = 2;
+            else if (mantissa_result[20]) leading_zeros = 3;
+            else if (mantissa_result[19]) leading_zeros = 4;
+            else if (mantissa_result[18]) leading_zeros = 5;
+            else if (mantissa_result[17]) leading_zeros = 6;
+            else if (mantissa_result[16]) leading_zeros = 7;
+            else if (mantissa_result[15]) leading_zeros = 8;
+            else if (mantissa_result[14]) leading_zeros = 9;
+            else if (mantissa_result[13]) leading_zeros = 10;
+            else if (mantissa_result[12]) leading_zeros = 11;
+            else if (mantissa_result[11]) leading_zeros = 12;
+            else if (mantissa_result[10]) leading_zeros = 13;
+            else if (mantissa_result[9]) leading_zeros = 14;
+            else if (mantissa_result[8]) leading_zeros = 15;
+            else if (mantissa_result[7]) leading_zeros = 16;
+            else if (mantissa_result[6]) leading_zeros = 17;
+            else if (mantissa_result[5]) leading_zeros = 18;
+            else if (mantissa_result[4]) leading_zeros = 19;
+            else if (mantissa_result[3]) leading_zeros = 20;
+            else if (mantissa_result[2]) leading_zeros = 21;
+            else if (mantissa_result[1]) leading_zeros = 22;
+            else if (mantissa_result[0]) leading_zeros = 23;
+            else leading_zeros = 24; // All zeros
+
+            result_mantissa = mantissa_result[23:0] << leading_zeros;
+            if (aligned_exp > leading_zeros)
+                result_exp = aligned_exp - leading_zeros;
+            else
+                result_exp = 0; // Underflow to zero or denormalized number
         end
     end
-
     // Step 6: Assemble the final result
     assign result = {result_sign, result_exp, result_mantissa[22:0]};
 endmodule

@@ -1,34 +1,49 @@
     `timescale 1ns / 1ps
-
+    //////////////////////////////////////////////////////////////////////////////////
+    // Reference Book: FPGA Prototyping By Verilog Examples Xilinx Spartan-3 Version
+    // Authored by: Dr. Pong P. Chu
+    // Published by: Wiley
+    //
+    // Adapted for the Basys 3 Artix-7 FPGA by David J. Marion
+    //
+    // UART System Verification Circuit
+    //
+    // Comments:
+    // - Many of the variable names have been changed for clarity
+    //////////////////////////////////////////////////////////////////////////////////
+    
     module uart_test(
         input CLK,       // basys 3 FPGA clock signal
         input reset,            // btnR    
         input rx,               // USB-RS232 Rx
         input btn,              // btnL (read and write FIFO operation)
         output tx,              // USB-RS232 Tx
-        output [3:0] an,        // 7 segment display digits
-        output [0:6] seg,       // 7 segment display segments
-        output [7:0] LED        // data byte display
+//        output [3:0] an,        // 7 segment display digits
+//        output [0:6] seg,       // 7 segment display segments
+        output reg finished,        // data byte display
+        output reg [65:0] uart_in
         );
         
         // Connection Signals
-        wire rx_full, rx_empty, btn_tick, clk_1kHz;
+        wire rx_full, rx_empty;
+        wire btn_tick;
         wire [7:0] rec_data, rec_data1;
         
+        
         // Complete UART Core
-    uart_top UART_UNIT
-        (
-            .CLK(CLK),
-            .RST(reset),
-            .read_uart(clk_1kHz),
-            .write_uart(clk_1kHz),
-            .rx(rx),
-            .write_data(rec_data1),
-            .rx_full(rx_full),
-            .rx_empty(rx_empty),
-            .read_data(rec_data),
-            .tx(tx)
-        );
+        uart_top UART_UNIT
+            (
+                .CLK(CLK),
+                .RST(reset),
+                .read_uart(btn_tick),
+                .write_uart(btn_tick),
+                .rx(rx),
+                .write_data(rec_data1),
+                .rx_full(rx_full),
+                .rx_empty(rx_empty),
+                .read_data(rec_data),
+                .tx(tx)
+            );
         
         // Button Debouncer
         debounce_explicit BUTTON_DEBOUNCER
@@ -39,53 +54,27 @@
                 .db_level(),  
                 .db_tick(btn_tick)
             );
-       ClockDivider clkDivide(
-               .clk_100MHz(CLK),
-               .clk_1kHz(clk_1kHz)
-            ); 
-        reg [6:0] counter;
-        initial begin
-            counter = 0;
-        end
-        
-        always @(posedge clk_1kHz or posedge reset) begin
-            counter = counter + 1;
-            if(counter > 65) begin
-                counter = 0;
-            end
-        
-        end    
-            
+        reg [7:0] counter = 0;
         // Signal Logic    
         assign rec_data1 = rec_data;    // add 1 to ascii value of received data (to transmit)
-        
+//        reg led = 1;
         // Output Logic
         assign LED = rec_data;              // data byte received displayed on LEDs
+//        assign LED[0] = led;
         assign an = 4'b1110;                // using only one 7 segment digit 
-        assign seg = {~rx_full, 2'b11, ~rx_empty, 3'b111};
-    endmodule
-    
-    
-    
-    
-    
-    
-    
-module ClockDivider(
-    input clk_100MHz,
-    output reg clk_1kHz
-);
-    reg [26:0] counter = 0; // Enough bits to count to 100M
-    initial begin
-        clk_1kHz <= 0;
-    end
-    
-    always @(posedge clk_100MHz) begin
-        if (counter == 5000 - 1) begin
-            clk_1kHz <= ~clk_1kHz;
-            counter <= 0;
-        end else begin
-            counter <= counter + 1;
+        assign seg = {~rx_full, 2'b11, ~rx_empty, 2'b11, full};
+        reg full = 1;
+//        reg [65:0] uart_in;
+        wire data;
+        assign data = (rec_data == 8'd49) ? 1'b1 : (rec_data == 8'd48) ? 1'b0 : 1'bx;
+        always @(posedge btn) begin
+            if(counter < 66) begin
+                uart_in[counter] = data;
+                counter = counter+1;
+                finished = 0;              
+            end else begin
+                finished = 1;
+            end
         end
-    end
-endmodule
+        
+    endmodule
