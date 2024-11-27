@@ -12,11 +12,11 @@ module fpga_b_top(
     output RES,
     output VBAT,
     output VDD,
-    output FIN,
+    output FIN
     // for testbench
-    output [7:0] received_data,
-    output [103:0] i2c_in,
-    output ready
+    // output [7:0] received_data,
+    // output [103:0] i2c_in,
+    // output ready
 );
 
 localparam IDLE = 3'b000;
@@ -42,7 +42,8 @@ wire multiplied_valid;
 wire [31:0] product;
 reg [31:0] ans;
 
-reg [127:0] line0_reg, line1_reg, line2_reg, line3_reg;
+// reg [127:0] line0_reg, line1_reg, line2_reg, line3_reg;
+wire [127:0] line0_reg, line1_reg, line2_reg, line3_reg;
 wire new_byte_received;
 wire [7:0] received_data;
 wire i2c_ack;
@@ -140,6 +141,12 @@ function [63:0] large_bin_to_ascii_hex;
     end
 endfunction
 
+assign line0_reg = {32'h4F504344, 32'h3A200000, large_bin_to_ascii_hex({30'h000, opcode})};  // "OPCD: x"
+assign line1_reg = {32'h413A2000, 32'h20000000, large_bin_to_ascii_hex(mult_a)};              // "A: xxx"
+assign line2_reg = {32'h423A2000, 32'h20000000, large_bin_to_ascii_hex(mult_b)};              // "B: xxx"
+assign line3_reg = {32'h414E533A, 32'h20000000, large_bin_to_ascii_hex(opcode == 2'b10 ? product : ans)};             // "ANS: xxx"
+
+
 
 // sequential logic
 always @(posedge clk or posedge rst) begin
@@ -154,15 +161,15 @@ always @(posedge clk or posedge rst) begin
 
 
         // for testing
-        // opcode <= 2'b10;
-        // mult_a <= 32'hF0F0F0F0;
-        // mult_b <= 32'h0F0F0F0F;
-        // ans <= 32'hFFFFFFFF;
+        opcode <= 2'b10;
+        mult_a <= 32'h40000000;
+        mult_b <= 32'h40000000;
+        // ans <= 32'h40800000;
         // end testing
-        line0_reg <= {32'h4F504344, 32'h3A200000, large_bin_to_ascii_hex({30'h000, opcode})};  // "OPCD: x"
-        line1_reg <= {32'h413A2000, 32'h20000000, large_bin_to_ascii_hex(mult_a)};              // "A: xxx"
-        line2_reg <= {32'h423A2000, 32'h20000000, large_bin_to_ascii_hex(mult_b)};              // "B: xxx"
-        line3_reg <= {32'h414E533A, 32'h20000000, large_bin_to_ascii_hex(ans)};             // "ANS: xxx"
+        // assign line0_reg = {32'h4F504344, 32'h3A200000, large_bin_to_ascii_hex({30'h000, opcode})};  // "OPCD: x"
+        // assign line1_reg = {32'h413A2000, 32'h20000000, large_bin_to_ascii_hex(mult_a)};              // "A: xxx"
+        // assign line2_reg = {32'h423A2000, 32'h20000000, large_bin_to_ascii_hex(mult_b)};              // "B: xxx"
+        // assign line3_reg = {32'h414E533A, 32'h20000000, large_bin_to_ascii_hex(product)};             // "ANS: xxx"
     end else begin
         current_state <= next_state;
         
@@ -214,22 +221,22 @@ always @(posedge clk or posedge rst) begin
             PROCESS: begin
                 mult_a <= i2c_buffer[95:64];  // operand a
                 mult_b <= i2c_buffer[63:32];  // operand b
-                if (opcode == 2'b10) begin
-                    // handled with posedge mul_valid
-                    // if (multiplied_valid)
-                        // ans <= product;
-                end else begin
-                    ans <= i2c_buffer[31:0];  // provided ans
-                end
+                // if (opcode == 2'b10) begin
+                //     // handled with posedge mul_valid
+                //     if (multiplied_valid)
+                //         ans <= product;
+                // end else begin
+                //     ans <= i2c_buffer[31:0];  // provided ans
+                // end
                 ready_reg <= 1'b1;
             end
             
             UPDATE_DISPLAY: begin
                 // Update OLED, bin_to_ascii_hex(tx_data[7:4])
-                line0_reg <= {32'h4F504344, 32'h3A200000, large_bin_to_ascii_hex({30'h000, opcode})};  // "OPCD: x"
-                line1_reg <= {32'h413A2000, 32'h20000000, large_bin_to_ascii_hex(mult_a)};              // "A: xxx"
-                line2_reg <= {32'h423A2000, 32'h20000000, large_bin_to_ascii_hex(mult_b)};              // "B: xxx"
-                line3_reg <= {32'h414E533A, 32'h20000000, large_bin_to_ascii_hex(ans)};             // "ANS: xxx"
+                // line0_reg <= {32'h4F504344, 32'h3A200000, large_bin_to_ascii_hex({30'h000, opcode})};  // "OPCD: x"
+                // line1_reg <= {32'h413A2000, 32'h20000000, large_bin_to_ascii_hex(mult_a)};              // "A: xxx"
+                // line2_reg <= {32'h423A2000, 32'h20000000, large_bin_to_ascii_hex(mult_b)};              // "B: xxx"
+                // line3_reg <= {32'h414E533A, 32'h20000000, large_bin_to_ascii_hex(ans)};             // "ANS: xxx"
             end
             
             WAIT_NEXT: begin
@@ -242,13 +249,13 @@ always @(posedge clk or posedge rst) begin
     end
 end
 
-always @(posedge multiplied_valid) begin
-    if(opcode == 2'b10) begin
-        ans <= product;
-        line3_reg <= {32'h414E533A, 32'h20000000, large_bin_to_ascii_hex(ans)}; 
-    end
+// always @(posedge multiplied_valid) begin
+//     if(opcode == 2'b10) begin
+//         // ans <= product;
+//         line3_reg <= {32'h414E533A, 32'h20000000, large_bin_to_ascii_hex(ans)}; 
+//     end
 
-end
+// end
 // combinational logic
 always @(*) begin
     next_state = current_state;

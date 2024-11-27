@@ -123,7 +123,22 @@ module tb_multiplier;
         #20;
         @(posedge valid);
         float_result = float_to_real(result);
-        $display("4.0 * 4.0 = %f", float_result);
+
+
+
+        a = real_to_float(-10.0);
+        b = real_to_float(-10.0);
+        #20;
+        @(posedge valid);
+        float_result = float_to_real(result);
+
+
+
+        a = real_to_float(1000000000.0);
+        b = real_to_float(0.00000001);
+        #20;
+        @(posedge valid);
+        float_result = float_to_real(result);
         
         #100 $finish;
     end
