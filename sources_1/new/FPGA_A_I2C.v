@@ -22,7 +22,7 @@ module FPGA_A_I2C(
 		.rst(rst), 
 		.addr(address), 
 		.data_in(data_in), 
-		.enable(go), 
+		.enable(enable), 
 		.rw(rw), 
 		.data_out(data_out), 
 		.ready(ready), 

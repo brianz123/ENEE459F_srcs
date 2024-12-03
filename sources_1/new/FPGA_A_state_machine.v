@@ -6,11 +6,14 @@ module state_machine (
     output reg done,          // Flag indicating task completion
 //    output [15:0] led,
     output complete,
+    output ready,
 //    output done,
     inout i2c_sda,
 	inout wire i2c_scl,
 	output [1:0] op,
-    output [3:0] st
+    output [3:0] st,
+    output [8:0] debugWire
+   
 	
 );
 assign st = state;
@@ -40,7 +43,7 @@ assign op = opcode;
     // Outputs to I2C
     localparam ack_start = 6'b111111;
     reg write;
-    wire ready;
+//    wire ready;
     
     
     // Data wires
@@ -55,12 +58,12 @@ assign op = opcode;
     // UART transmission control
     reg [3:0] char_index;               // Index to track the character in the message
     reg write_enable;                   // Trigger for UART transmission
-
+    
     // Assignments
     assign final_result = (add_flag) ? sum : (sub_flag ? difference : 32'b0);
-    assign opcode = uart_in[1:0];
-    assign A = uart_in[33:2];
-    assign B = uart_in[65:34];
+    assign opcode = uart_in[65:64];
+    assign A = uart_in[63:32];
+    assign B = uart_in[31:0];
     assign output_buff = {ack_start, opcode, A, B, final_result};
 
     // Floating-point add/subtract modules
@@ -71,10 +74,11 @@ assign op = opcode;
         .master_data_in(output_buff),
         .clk(clk),
         .rst(reset),
-        .enable(write),
+        .enable(uart_ready),
         .ready(ready),
         .done(i2c_done),
         .complete(complete),
+        .debugWire(deugWire),
         .i2c_sda(i2c_sda),
         .i2c_scl(i2c_scl)
     );
@@ -145,14 +149,13 @@ assign op = opcode;
                 // Placeholder for I2C write operation
                 write <=1;
                 if(complete == 1)begin
-                    write= 0;
                     next_state = DONE_STATE;
-                    write = 0;
                 end
             end
 
             DONE_STATE: begin
                 done = 1; // Indicate completion
+                write =1;
                 next_state = IDLE; // Go back to idle
             end
 
