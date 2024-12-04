@@ -21,6 +21,8 @@ module i2c_slave_controller
     reg [3:0] bit_count;
 
     assign sda = (state == ACKNOWLEDGE) ? 1'b0 : 1'bz; // pull SDA low for ACK
+    // assign sda = (state == ACKNOWLEDGE && bit_count == 0) ? 1'b0 : 1'bz;
+
 
     always @(negedge scl) begin
         case (state)
@@ -75,13 +77,9 @@ module i2c_slave_controller
                     
 //                end
             end
+
         endcase
     end
 
-//    always @(posedge scl) begin
-//        if (state == RECEIVE_DATA) begin
-//            $display("Receiving Data: %b", shift_reg);
-//        end
-//    end
 
 endmodule

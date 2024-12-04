@@ -16,7 +16,7 @@ module clock_divider (
             clk_1Hz <= 1'b0;
         end
         else begin
-            if (counter == 26'd49999999) begin  // 50M - 1
+            if (counter == 26'd4999999) begin  // 50M - 1
                 counter <= 26'd0;
                 clk_1Hz <= ~clk_1Hz;
             end

@@ -12,11 +12,15 @@ module fpga_b_top(
     output RES,
     output VBAT,
     output VDD,
-    output FIN
+    output FIN,
     // for testbench
     // output [7:0] received_data,
     // output [103:0] i2c_in,
-    // output ready
+    // output ready,
+    output new_byte_received,
+    output transmission_complete,
+    output received_data,
+    output i2c_ack
 );
 
 localparam IDLE = 3'b000;
@@ -141,11 +145,15 @@ function [63:0] large_bin_to_ascii_hex;
     end
 endfunction
 
-assign line0_reg = {32'h4F504344, 32'h3A200000, large_bin_to_ascii_hex({30'h000, opcode})};  // "OPCD: x"
-assign line1_reg = {32'h413A2000, 32'h20000000, large_bin_to_ascii_hex(mult_a)};              // "A: xxx"
-assign line2_reg = {32'h423A2000, 32'h20000000, large_bin_to_ascii_hex(mult_b)};              // "B: xxx"
-assign line3_reg = {32'h414E533A, 32'h20000000, large_bin_to_ascii_hex(opcode == 2'b10 ? product : ans)};             // "ANS: xxx"
+assign line0_reg = {bin_to_ascii_hex(byte_counter), 8'h3A, bin_to_ascii_hex(received_data[7:4]), bin_to_ascii_hex(received_data[3:0]), 32'h00000000, 32'h0000, 24'h4F503A, bin_to_ascii_hex({2'b00, opcode})};  // "OPCD: x"
+// assign line0_reg = {32'h4F504344, 32'h3A200000, large_bin_to_ascii_hex(received_data)};
+assign line1_reg = {32'h413A0000, 32'h00000000, large_bin_to_ascii_hex(mult_a)};              // "A: xxx"
+assign line2_reg = {32'h423A0000, 32'h00000000, large_bin_to_ascii_hex(mult_b)};              // "B: xxx"
+assign line3_reg = {32'h414E533A, 32'h00000000, large_bin_to_ascii_hex(opcode == 2'b10 ? product : ans)};             // "ANS: xxx"
 
+
+assign ready = ready_reg;
+// assign i2c_in = i2c_buffer;
 
 
 // sequential logic
@@ -160,12 +168,25 @@ always @(posedge clk or posedge rst) begin
         byte_stored <= 1'b0;
 
 
+        mult_a <= 32'h00000000;
+        mult_b <= 32'h00000000;
+        ans <= 32'h00000000;
+        opcode <= 2'b00;
+
+
         // for testing
-        opcode <= 2'b10;
-        mult_a <= 32'h40000000;
-        mult_b <= 32'h40000000;
+        // opcode <= 2'b10;
+        // mult_a <= 32'h40000000;
+        // mult_b <= 32'h40000000;
         // ans <= 32'h40800000;
+
+
+
+
         // end testing
+
+
+
         // assign line0_reg = {32'h4F504344, 32'h3A200000, large_bin_to_ascii_hex({30'h000, opcode})};  // "OPCD: x"
         // assign line1_reg = {32'h413A2000, 32'h20000000, large_bin_to_ascii_hex(mult_a)};              // "A: xxx"
         // assign line2_reg = {32'h423A2000, 32'h20000000, large_bin_to_ascii_hex(mult_b)};              // "B: xxx"
@@ -175,7 +196,8 @@ always @(posedge clk or posedge rst) begin
         
         case (current_state)
             IDLE: begin
-                if (new_byte_received && !byte_stored) begin
+                // if (new_byte_received && !byte_stored) begin
+                if (new_byte_received) begin
                     if (received_data[7:2] == 6'b111111) begin
                         transmission_complete <= 1'b0;
                         byte_counter <= 4'd1;
@@ -187,7 +209,8 @@ always @(posedge clk or posedge rst) begin
             end
             
             RECEIVING: begin
-                if (new_byte_received && !byte_stored) begin
+                // if (new_byte_received && !byte_stored) begin
+                if (new_byte_received) begin
                     case (byte_counter)
                         4'd1: i2c_buffer[95:88] <= received_data;
                         4'd2: i2c_buffer[87:80] <= received_data;
@@ -205,22 +228,24 @@ always @(posedge clk or posedge rst) begin
                             transmission_complete <= 1'b1;
                         end
                     endcase
-                    
+
+
                     if (byte_counter < 4'd12)
                         byte_counter <= byte_counter + 1;
-                    byte_stored <= 1'b1;
+                    // byte_stored <= 1'b1;
                 end
             end
             
             WAIT_LOW: begin
-                if (!new_byte_received) begin
-                    byte_stored <= 1'b0;
-                end
+                // if (!new_byte_received) begin
+                //     byte_stored <= 1'b0;
+                // end
             end
             
             PROCESS: begin
                 mult_a <= i2c_buffer[95:64];  // operand a
                 mult_b <= i2c_buffer[63:32];  // operand b
+                ans <= i2c_buffer[31:0];
                 // if (opcode == 2'b10) begin
                 //     // handled with posedge mul_valid
                 //     if (multiplied_valid)
@@ -243,43 +268,48 @@ always @(posedge clk or posedge rst) begin
                 // transmission_complete <= 1'b0;
                 ready_reg <= 1'b0;
                 byte_counter <= 4'd0;
-                byte_stored <= 1'b0;
+                // byte_stored <= 1'b0;
             end
         endcase
     end
 end
 
-// always @(posedge multiplied_valid) begin
-//     if(opcode == 2'b10) begin
-//         // ans <= product;
-//         line3_reg <= {32'h414E533A, 32'h20000000, large_bin_to_ascii_hex(ans)}; 
-//     end
-
-// end
 // combinational logic
 always @(*) begin
     next_state = current_state;
     
     case (current_state)
         IDLE: begin
-            if (new_byte_received && !byte_stored && received_data[7:2] == 6'b111111)
+            if (new_byte_received && received_data[7:2] == 6'b111111)
+            // if (new_byte_received && !byte_stored && received_data[7:2] == 6'b111111)
                 next_state = WAIT_LOW;
         end
         
         RECEIVING: begin
             if (transmission_complete)
                 next_state = PROCESS;
-            else if (new_byte_received && !byte_stored)
+            // else if (new_byte_received && !byte_stored)
+            else if (new_byte_received)
                 next_state = WAIT_LOW;
         end
         
         WAIT_LOW: begin
-            if (!new_byte_received) begin
-                if (transmission_complete)
-                    next_state = PROCESS;
-                else
-                    next_state = RECEIVING;
+            // if (!new_byte_received) begin
+            //     if (transmission_complete)
+            //         next_state = PROCESS;
+            //     else
+            //         next_state = RECEIVING;
+            // end
+            if (transmission_complete) begin
+                next_state = PROCESS;
+            end 
+            else if (!new_byte_received) begin
+                next_state = RECEIVING;
             end
+
+
+
+
         end
         
         PROCESS: begin
@@ -297,8 +327,7 @@ always @(*) begin
     endcase
 end
 
-assign ready = ready_reg;
-assign i2c_in = i2c_buffer;
+
 
 endmodule
 

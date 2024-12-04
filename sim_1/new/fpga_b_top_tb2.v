@@ -72,7 +72,9 @@ module fpga_b_top_tb2;
 
     // wire [3:0] byte_counter;
     // wire [2:0] current_state;
-    wire [103:0] i2c_in;
+    // wire [103:0] i2c_in;
+    reg [103:0] i2c_wire;
+    wire [103:0] i2c_buffer;
     wire new_byte_received;
     wire transmission_complete;
     wire [31:0] ans;
@@ -85,7 +87,8 @@ module fpga_b_top_tb2;
     wire [127:0] line3_reg;
     // assign byte_counter = DUT.byte_counter;
     // assign current_state = DUT.current_state;
-    assign i2c_in = DUT.i2c_in;
+    // assign i2c_in = DUT.i2c_in;
+    assign i2c_buffer = DUT.i2c_buffer;
     assign new_byte_received = DUT.new_byte_received;
     assign transmission_complete = DUT.transmission_complete;
     assign ans = DUT.ans;
@@ -126,7 +129,6 @@ module fpga_b_top_tb2;
 		rw = 0;
 		enable = 1;
 		#10;
-		enable = 0; 
 		// Increment data_in and send multiple transactions
 		// repeat (100) begin
             
@@ -140,37 +142,34 @@ module fpga_b_top_tb2;
 		// end
 
 
+    
+
         // i2c IN 13 bytes
         wait(ready);
         data_in = 8'b11111110; //start byte + mul op
         enable = 1;
         #10;
-        enable = 0;
 
         // operand A = 32'h40 40 00 00
         wait(ready);
         data_in = 8'b00100000;
         enable = 1;
         #10;
-        enable = 0;
 
         wait(ready);
         data_in = 8'b00100000;
         enable = 1;
         #10;
-        enable = 0;
 
         wait(ready);
         data_in = 8'b00000000;
         enable = 1;
         #10;
-        enable = 0;
 
         wait(ready);
         data_in = 8'b00000000;
         enable = 1;
         #10;
-        enable = 0;
 
 
         // operand B = 32'h 3F 00 00 00 (4)
@@ -178,25 +177,21 @@ module fpga_b_top_tb2;
         data_in = 8'b00111111;
         enable = 1;
         #10;
-        enable = 0;
 
         wait(ready);
         data_in = 8'b00000000;
         enable = 1;
         #10;
-        enable = 0;
 
         wait(ready);
         data_in = 8'b00000000;
         enable = 1;
         #10;
-        enable = 0;
 
         wait(ready);
         data_in = 8'b00000000;
         enable = 1;
         #10;
-        enable = 0;
 
 
         // ans = 32'h 40 80 00 00 => 4
@@ -204,25 +199,21 @@ module fpga_b_top_tb2;
         data_in = 8'b01000000;
         enable = 1;
         #10;
-        enable = 0;
 
         wait(ready);
         data_in = 8'b10000000;
         enable = 1;
         #10;
-        enable = 0;
 
         wait(ready);
         data_in = 8'b00000000;
         enable = 1;
         #10;
-        enable = 0;
 
         wait(ready);
         data_in = 8'b00000000;
         enable = 1;
         #10;
-        enable = 0;
         
 
 
@@ -234,21 +225,55 @@ module fpga_b_top_tb2;
         data_in = 8'b11110000;
         enable = 1;
         #10;
-        enable = 0;
 
 
         wait(ready);
         data_in = 8'b00001111;
         enable = 1;
         #10;
-        enable = 0;
 
 
-        // START BYTE
-        wait(ready);
-        data_in = 8'b11111100;
-        enable = 1;
-        #10;
+        // // START BYTE
+        // wait(ready);
+        // data_in = 8'b11111100;
+        // enable = 1;
+        // #10;
+        // enable = 0;
+
+
+
+        // loop through i2c_in[103:0] for every byte and send it
+        i2c_wire = 104'hFE1234567887654321FFFFFFFF;
+        repeat (13) begin
+            wait(ready);
+            data_in = i2c_wire[103:96];
+            enable = 1;
+            #10;
+            i2c_wire = i2c_wire << 8;
+        end
+
+
+
+        // i2c_wire = 104'hFE1234567887654321FFFFFFFF;
+        // repeat (13) begin
+        //     wait(ready);
+        //     data_in = i2c_wire[103:96];
+        //     enable = 1;
+        //     #10;
+        //     i2c_wire = i2c_wire << 8;
+        // end
+
+
+        // i2c_wire = 104'hFE1234567887654321FFFFFFFF;
+        // repeat (13) begin
+        //     wait(ready);
+        //     data_in = i2c_wire[103:96];
+        //     enable = 1;
+        //     #10;
+        //     i2c_wire = i2c_wire << 8;
+        // end
+
+
         enable = 0;
 
 		$finish;

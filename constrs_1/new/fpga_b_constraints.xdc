@@ -90,14 +90,31 @@ set_property PACKAGE_PIN M18 [get_ports scl]
 
 
 
+set_property IOSTANDARD LVCMOS18 [get_ports new_byte_received]
+set_property PACKAGE_PIN P1 [get_ports new_byte_received]
+
+
+set_property IOSTANDARD LVCMOS18 [get_ports transmission_complete]
+set_property PACKAGE_PIN N3 [get_ports transmission_complete]
+
+
 # set_property IOSTANDARD LVCMOS18 [get_ports {mode[*]}]
 # set_property PACKAGE_PIN V17 [get_ports {mode[0]}]
 # set_property PACKAGE_PIN V16 [get_ports {mode[1]}]
 
 
 
-# set_property IOSTANDARD LVCMOS18 [get_ports {ans[*]}]
-# set_property PACKAGE_PIN W2 [get_ports {uart_in[0]}]
-# set_property PACKAGE_PIN U1 [get_ports {uart_in[1]}]
-# set_property PACKAGE_PIN T1 [get_ports {uart_in[2]}]
-# set_property PACKAGE_PIN R2 [get_ports {uart_in[3]}]
+set_property IOSTANDARD LVCMOS18 [get_ports {received_data[*]}]
+set_property PACKAGE_PIN U16 [get_ports {received_data[0]}]
+set_property PACKAGE_PIN E19 [get_ports {received_data[1]}]
+set_property PACKAGE_PIN U19 [get_ports {received_data[2]}]
+set_property PACKAGE_PIN V19 [get_ports {received_data[3]}]
+set_property PACKAGE_PIN W18 [get_ports {received_data[4]}]
+set_property PACKAGE_PIN U15 [get_ports {received_data[5]}]
+set_property PACKAGE_PIN U14 [get_ports {received_data[6]}]
+set_property PACKAGE_PIN V14 [get_ports {received_data[7]}]
+
+
+
+set_property IOSTANDARD LVCMOS18 [get_ports i2c_ack]
+set_property PACKAGE_PIN P3 [get_ports i2c_ack]

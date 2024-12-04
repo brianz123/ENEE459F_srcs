@@ -140,6 +140,15 @@ module tb_multiplier;
         @(posedge valid);
         float_result = float_to_real(result);
         
+        
+        
+        
+        a = 32'h7F800000;
+        b = 32'h42980000;
+        #20;
+        @(posedge valid);
+        float_result = float_to_real(result);
+        
         #100 $finish;
     end
     
