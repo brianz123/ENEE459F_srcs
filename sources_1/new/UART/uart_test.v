@@ -66,8 +66,15 @@
         reg full = 1;
 //        reg [65:0] uart_in;
         wire data;
-        assign data = (rec_data == 8'd49) ? 1'b1 : (rec_data == 8'd48) ? 1'b0 : 1'bx;
-        always @(posedge btn) begin
+        assign data = 
+            // Check if rec_data corresponds to ASCII '0'-'9' (0x30-0x39)
+            (rec_data >= 8'h30 && rec_data <= 8'h39) ? rec_data - 8'h30 : 
+            // Check if rec_data corresponds to ASCII 'A'-'F' (uppercase, 0x41-0x46)
+            (rec_data >= 8'h41 && rec_data <= 8'h46) ? rec_data - 8'h37 : 
+            // Check if rec_data corresponds to ASCII 'a'-'f' (lowercase, 0x61-0x66)
+            (rec_data >= 8'h61 && rec_data <= 8'h66) ? rec_data - 8'h57 : 
+            // If rec_data does not match any of the above, set data to undefined (xxxx)
+            4'bxxxx;        always @(posedge btn) begin
             if(counter < 66) begin
                 uart_in[counter] = data;
                 counter = counter+1;

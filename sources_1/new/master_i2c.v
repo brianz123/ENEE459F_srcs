@@ -5,6 +5,7 @@ module master_i2c (
     input wire clk,
     input wire rst,
     input wire enable,
+    input [8:0] d,
     output wire ready,
     output wire done,
     output reg complete,
@@ -39,8 +40,9 @@ module master_i2c (
     parameter RUN  = 2'd1;
     parameter WAIT = 2'd2;
     parameter DONE = 2'd3;
-    parameter delay = 15;
+    parameter delay = 100;
     reg [10:0] cnt2;
+    reg [10:0] c = 10'd40;
     // Initialization
     initial begin
         counter = 13'd96;
@@ -59,7 +61,7 @@ module master_i2c (
 //            counter <= 13'd96;
             state <= 0;
             go <= 0;
-            data <= {8'b111111, master_data_in[103:102]};
+            data <= {6'b111111, master_data_in[103:102]};
         end else begin
             case (state)
                 IDLE: begin
@@ -67,6 +69,8 @@ module master_i2c (
                     complete = 0;
                     if (enable) begin
                         data <= {master_data_in[counter+7],master_data_in[counter+6],master_data_in[counter+5], master_data_in[counter+4], master_data_in[counter+3], master_data_in[counter+2], master_data_in[counter+1], master_data_in[counter]}; // Load data
+//                        data <= {master_data_in[c+7],master_data_in[c+6],master_data_in[c+5], master_data_in[c+4], master_data_in[c+3], master_data_in[c+2], master_data_in[c+1], master_data_in[c]}; // Load data
+//data<=d;
                         go <= 1;                 // Trigger I2C transaction
                         state <= 1;              // Move to the next state
                     end

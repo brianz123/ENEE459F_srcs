@@ -3,6 +3,7 @@ module state_machine (
     input reset,
     input [65:0] uart_in,
     input uart_ready,
+    input [8:0] data,
     output reg done,          // Flag indicating task completion
 //    output [15:0] led,
     output complete,
@@ -75,6 +76,7 @@ assign op = opcode;
         .clk(clk),
         .rst(reset),
         .enable(uart_ready),
+        .d(data),
         .ready(ready),
         .done(i2c_done),
         .complete(complete),

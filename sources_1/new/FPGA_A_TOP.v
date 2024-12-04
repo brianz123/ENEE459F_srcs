@@ -47,6 +47,7 @@ module FPGA_A_TOP(
 wire [8:0] debugWire;
 wire reset;
 // UART input
+wire [65:0] uart_in;
 wire [65:0] uart_in2;
 assign uart_in2 = {2'b01, 32'h12345678, 32'h87654321};
 
@@ -62,6 +63,7 @@ state_machine uut (
     .reset(reset),
     .uart_in(uart_in2),
     .uart_ready(sw[0]),
+    .data(sw[15:8]),
     .complete(complete),
     .ready(ready),
     .done(done),
