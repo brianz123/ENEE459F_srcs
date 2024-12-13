@@ -3,38 +3,44 @@ module FP32_CLA_Adder(
     input [31:0] b,          // Second 32-bit floating-point input
     output [31:0] result     // Resulting 32-bit floating-point output
 );
-    // Step 1: Extract fields
-    wire sign_a = a[31];
-    wire sign_b = b[31];
-    wire [7:0] exp_a = a[30:23];
-    wire [7:0] exp_b = b[30:23];
+    // Step 1: Extract fields from the 32-bit IEEE 754 floating-point format
+    // The format is: [Sign(1 bit) | Exponent(8 bits) | Mantissa(23 bits)]
+    wire sign_a = a[31];             // Sign bit of 'a'
+    wire sign_b = b[31];             // Sign bit of 'b'
+    wire [7:0] exp_a = a[30:23];     // Exponent field of 'a'
+    wire [7:0] exp_b = b[30:23];     // Exponent field of 'b'
     
+    // Extract the mantissa (also known as fraction) and add the implicit leading 1 if normalized
+    // If exponent is zero, it indicates either zero or a denormalized number, so no implicit '1'.
     wire [23:0] mantissa_a = (exp_a == 8'b0) ? {1'b0, a[22:0]} : {1'b1, a[22:0]};
     wire [23:0] mantissa_b = (exp_b == 8'b0) ? {1'b0, b[22:0]} : {1'b1, b[22:0]};
 
-//    wire [23:0] mantissa_a = {1'b1, a[22:0]}; // Implicit 1 for normalized mantissa
-//    wire [23:0] mantissa_b = {1'b1, b[22:0]}; // Implicit 1 for normalized mantissa
-
-    // Step 2: Exponent difference
+    // Step 2: Compute the exponent difference
+    // This will help in aligning the smaller mantissa before addition/subtraction
     wire [7:0] exp_diff = (exp_a > exp_b) ? (exp_a - exp_b) : (exp_b - exp_a);
 
-    // Step 3: Align mantissas
+    // Step 3: Align mantissas by shifting the smaller one
+    // The mantissa corresponding to the smaller exponent is right-shifted to align both mantissas.
     wire [23:0] mantissa_a_shifted = (exp_a >= exp_b) ? mantissa_a : (mantissa_a >> exp_diff);
     wire [23:0] mantissa_b_shifted = (exp_b >= exp_a) ? mantissa_b : (mantissa_b >> exp_diff);
+
+    // The aligned exponent is the larger of the two exponents
     wire [7:0] aligned_exp = (exp_a >= exp_b) ? exp_a : exp_b;
 
-    // Step 4: Perform mantissa addition/subtraction
-    reg [24:0] mantissa_result; // One extra bit for possible carry
-    reg result_sign;
-    
-    
+    // Step 4: Perform mantissa addition or subtraction
+    // If the signs are the same, we add the mantissas.
+    // If different, we subtract the smaller mantissa from the larger one.
+    reg [24:0] mantissa_result; // Extra bit for carry out during addition
+    reg result_sign;            // The resulting sign bit
+
     always @(*) begin
         if (sign_a == sign_b) begin
-            // Same signs: add mantissas
+            // Same sign: simply add the mantissas
             mantissa_result = {1'b0, mantissa_a_shifted} + {1'b0, mantissa_b_shifted};
-            result_sign = sign_a;
+            result_sign = sign_a; // Result sign is the same as both inputs
         end else begin
-            // Different signs: subtract smaller magnitude from larger
+            // Different signs: effectively perform subtraction
+            // The sign of the result is the sign of the larger magnitude operand
             if (mantissa_a_shifted >= mantissa_b_shifted) begin
                 mantissa_result = {1'b0, mantissa_a_shifted} - {1'b0, mantissa_b_shifted};
                 result_sign = sign_a;
@@ -45,18 +51,23 @@ module FP32_CLA_Adder(
         end
     end
 
-      // Step 5: Normalize result using Leading Zero Counter
-    reg [7:0] result_exp;
-    reg [23:0] result_mantissa;
-    reg [4:0] leading_zeros; // 5 bits to count up to 24
+    // Step 5: Normalize the result
+    // After addition/subtraction, we may need to shift the mantissa to restore normalized form.
+    // Normalization ensures the leading bit of the mantissa is '1' for normalized numbers
+    // unless the result is zero or denormalized.
+    reg [7:0] result_exp;       // Final exponent after normalization
+    reg [23:0] result_mantissa; // Final mantissa after normalization
+    reg [4:0] leading_zeros;    // Count leading zeros to normalize the mantissa
 
     always @(*) begin
         if (mantissa_result[24]) begin
-            // Normalization shift if there's a carry out
-            result_mantissa = mantissa_result[24:1]; // Shift right by 1
+            // If there is an overflow in the mantissa (e.g., carry out),
+            // shift right by one and increase exponent by one.
+            result_mantissa = mantissa_result[24:1]; 
             result_exp = aligned_exp + 1;
         end else begin
-            // Use Leading Zero Counter
+            // If no overflow, count leading zeros to shift the mantissa left if needed.
+            // This series of if-else statements finds the position of the first '1'.
             if (mantissa_result[23]) leading_zeros = 0;
             else if (mantissa_result[22]) leading_zeros = 1;
             else if (mantissa_result[21]) leading_zeros = 2;
@@ -81,17 +92,23 @@ module FP32_CLA_Adder(
             else if (mantissa_result[2]) leading_zeros = 21;
             else if (mantissa_result[1]) leading_zeros = 22;
             else if (mantissa_result[0]) leading_zeros = 23;
-            else leading_zeros = 24; // All zeros
+            else leading_zeros = 24; // The mantissa is all zeros
 
+            // Shift the mantissa left to normalize it
             result_mantissa = mantissa_result[23:0] << leading_zeros;
+            // Adjust the exponent based on how many bits we shifted
             if (aligned_exp > leading_zeros)
                 result_exp = aligned_exp - leading_zeros;
             else
-                result_exp = 0; // Underflow to zero or denormalized number
+                // If we cannot reduce exponent further, we end up with a denormalized number or zero.
+                result_exp = 0;
         end
     end
-    // Step 6: Assemble the final result
+
+    // Step 6: Assemble the final 32-bit floating-point number
+    // Format again: [Sign(1) | Exponent(8) | Mantissa(23)]
     assign result = {result_sign, result_exp, result_mantissa[22:0]};
+
 endmodule
 
 
@@ -99,13 +116,14 @@ endmodule
 module FP32_CLA_Subtractor(
     input [31:0] a,          // Minuend (First operand)
     input [31:0] b,          // Subtrahend (Second operand)
-    output [31:0] result     // Resulting 32-bit floating-point output
+    output [31:0] result     // 32-bit floating-point subtraction result
 );
-    // Negate the subtrahend by flipping its sign bit
+    // To subtract b from a (a - b), we can add a and (-b).
+    // Negate b by flipping its sign bit.
     wire [31:0] b_negated;
     assign b_negated = {~b[31], b[30:0]};
 
-    // Use the FP32_CLA_Adder module to compute a + (-b)
+    // Reuse the FP32_CLA_Adder to perform a + (-b)
     FP32_CLA_Adder adder_inst (
         .a(a),
         .b(b_negated),

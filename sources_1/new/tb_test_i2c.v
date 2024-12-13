@@ -37,7 +37,7 @@ module master_i2c_tb;
 
 
 	// internal slave signal
-	wire [6:0] slave_addr = 7'b0001101; // slave stored address
+	wire [6:0] slave_addr = 7'b0000111; // slave stored address
 	wire [7:0] received_data; // received by the slave
 	
 	i2c_slave_controller slave (
